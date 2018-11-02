@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Creates an ElasticCache (Redis) Cluster in a Single AZ.
+Parameters:
+  ParamCacheNodeType:
+    Description: The instance type the nodes will launch under.
+    Type: String
+    Default: cache.t2.micro
+    AllowedValues:
+      - cache.t2.micro
+      - cache.t2.small
+      - cache.t2.medium
+      - cache.m3.medium
+      - cache.m3.large
+      - cache.m3.xlarge
+      - cache.m3.2xlarge
+      - cache.r3.large
+      - cache.r3.xlarge
+      - cache.r3.2xlarge
+      - cache.r3.4xlarge
+      - cache.r3.8xlarge
+  ParamPort:
+    Description: The port number on which each of the cache nodes will accept connections.
+    Type: Number
+    Default: '6379'
+    MinValue: '1'
+    MaxValue: '65535'
+  ParamPreferredAvailabilityZone:
+    Description: Which availability zone to deploy the cluster in.
+    Default: eu-west-1a
+    Type: String
+  ParamClusterName:
+    Description: Name of the cluster.
+    Default: my-redis-cluster
+    Type: String  
+    MinLength: '1'
+    MaxLength: '20'
+  ParamSourceIngressSecurityGroupId:
+    Description: Specifies the ID of the Amazon EC2 Security Group to allow inbound access to the redis cluster.
+    Default: 'sg-0967758fb005e3548'
+    Type: String
+  ParamVpcId:
+    Description: VPC to launch the cache cluster in.
+    Default: 'vpc-9976d8fe'
+    Type: String
+  ParamSubnetId:
+    Description: Specifies the subnet ID for the cache subnet group, this subnet ID must be part of the same VPC
+    Default: 'subnet-928725f5'
+    Type: String
+  ParamNameTagValue:
+    Description: Name tag to use
+    Default: MyTeam
+    Type: String
+
+Resources:
+  ElastiCacheRedis:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: !Ref ParamCacheNodeType
+      CacheSubnetGroupName: !Ref SubnetGroup
+      ClusterName: !Ref ParamClusterName
+      Engine: redis
+      EngineVersion: 4.0.10
+      # For clusters running Redis, this value must be 1
+      # See https://docs.aws.amazon.com/cli/latest/reference/elasticache/create-cache-cluster.html
+      NumCacheNodes: 1
+      Port: !Ref ParamPort
+      PreferredAvailabilityZone: !Ref ParamPreferredAvailabilityZone
+      Tags:
+        - Key: 'Name'
+          Value: !Ref ParamNameTagValue
+      VpcSecurityGroupIds:
+        - !GetAtt 
+          - SecurityGroup
+          - GroupId
+
+  SubnetGroup:
+    Type: 'AWS::ElastiCache::SubnetGroup'
+    Properties:
+      Description: Subnet Group for ElastiCache Cluster
+      SubnetIds:
+        # Only one availability zone
+        - !Ref ParamSubnetId
+
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security Group for ElastiCache
+      VpcId: !Ref ParamVpcId
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref ParamSourceIngressSecurityGroupId
+          FromPort: !Ref ParamPort
+          ToPort: !Ref ParamPort
+          IpProtocol: tcp
+      Tags:
+        - Key: 'Name'
+          Value: !Ref ParamNameTagValue
+Outputs:
+  RedisClusterEndpointFull:
+    Description: The full endpoint location
+    Value: !Join 
+      - ''
+      - - 'redis://'
+        - !GetAtt 
+          - ElastiCacheRedis
+          - RedisEndpoint.Address
+        - ':'
+        - !GetAtt 
+          - ElastiCacheRedis
+          - RedisEndpoint.Port
+    Export:
+      Name: elasticache-redis-myteam
+  RedisClusterEndpointAddress:
+    Description: The DNS address of the cluster
+    Value: !GetAtt 
+          - ElastiCacheRedis
+          - RedisEndpoint.Address
+    Export:
+      Name: elasticache-redis-address-myteam
+  RedisClusterEndpointPort:
+    Description: The port number of the cluster
+    Value: !GetAtt 
+           - ElastiCacheRedis
+           - RedisEndpoint.Port
+    Export:
+      Name: elasticache-redis-port-myteam    
