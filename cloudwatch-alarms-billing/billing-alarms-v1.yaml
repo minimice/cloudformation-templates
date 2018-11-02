@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates alarms for AWS billing charges.
+Metadata:
+  Created By: Lim Chooi Guan
+Parameters:
+  Email:
+    Type: String
+    Description: Email address to notify when billing has exceeded threshold
+    MinLength: '6'
+  1stAlarmThreshold:
+    Type: Number
+    Default: '2'
+    Description: The dollar amount threshold you want the 1st alarm to
+      alert you on.
+    MinValue: '1'
+  2ndAlarmThreshold:
+    Type: Number
+    Default: '20'
+    Description: The dollar amount threshold you want the 2nd alarm to
+      alert you on.
+    MinValue: '1'
+  3rdAlarmThreshold:
+    Type: Number
+    Default: '30'
+    Description: The dollar amount threshold you want the 3rd alarm
+      to alert you on.
+    MinValue: '1'
+Resources:
+  AlarmNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !Ref 'Email'
+          Protocol: email
+  SpendingAlarm1:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - Your AWS Bill has crossed $
+          - !Ref '1stAlarmThreshold'
+      AlarmDescription: !Join
+        - ''
+        - - Your AWS Bill has crossed $
+          - !Ref '1stAlarmThreshold'
+      Namespace: AWS/Billing
+      MetricName: EstimatedCharges
+      Dimensions:
+        - Name: Currency
+          Value: USD
+      Statistic: Maximum
+      Period: '21600'
+      EvaluationPeriods: '1'
+      Threshold: !Ref '1stAlarmThreshold'
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref 'AlarmNotificationTopic'
+      InsufficientDataActions:
+        - !Ref 'AlarmNotificationTopic'
+  SpendingAlarm2:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - Your AWS Bill has crossed $
+          - !Ref '2ndAlarmThreshold'
+      AlarmDescription: !Join
+        - ''
+        - - Your AWS Bill has crossed $
+          - !Ref '2ndAlarmThreshold'
+      Namespace: AWS/Billing
+      MetricName: EstimatedCharges
+      Dimensions:
+        - Name: Currency
+          Value: USD
+      Statistic: Maximum
+      Period: '21600'
+      EvaluationPeriods: '1'
+      Threshold: !Ref '2ndAlarmThreshold'
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref 'AlarmNotificationTopic'
+      InsufficientDataActions:
+        - !Ref 'AlarmNotificationTopic'
+  SpendingAlarm3:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - ''
+        - - Final Alert - Your AWS Bill has crossed $
+          - !Ref '3rdAlarmThreshold'
+      AlarmDescription: !Join
+        - ''
+        - - Final Alert - Your AWS Bill has crossed $
+          - !Ref '3rdAlarmThreshold'
+      Namespace: AWS/Billing
+      MetricName: EstimatedCharges
+      Dimensions:
+        - Name: Currency
+          Value: USD
+      Statistic: Maximum
+      Period: '21600'
+      EvaluationPeriods: '1'
+      Threshold: !Ref '3rdAlarmThreshold'
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref 'AlarmNotificationTopic'
+      InsufficientDataActions:
+        - !Ref 'AlarmNotificationTopic'
