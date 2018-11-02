@@ -1,6 +1,8 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   Creates an ElasticCache (Redis) Cluster in a Single AZ.
+Metadata:
+  Created By: Lim Chooi Guan
 Parameters:
   ParamCacheNodeType:
     Description: The instance type the nodes will launch under.
