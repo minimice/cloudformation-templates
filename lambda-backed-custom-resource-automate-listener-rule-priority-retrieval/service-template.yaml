@@ -1,0 +1,214 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Example of a cloudformation template which uses the custom backed lambda function to automagically retrieve the listener rule priority.
+Metadata:
+  Created By: Lim Chooi Guan AWS Certified SA
+Parameters:
+  Tag:
+    Type: String
+  EcsClusterExportName:
+    Type: String
+    Description: Export name of your EcsCluster, typically xx-infra-ecs-EcsCluster or xx-ecs-deploy-Cluster
+  DesiredCount:
+    Type: Number
+    Default: 1
+  HealthCheckPath:
+    Type: String
+    Default: '/api/monitoring/ping'
+  Image1Name:
+    Type: String
+  Image1ContainerPort:
+    Type: Number
+    Default: 80
+  Image1MemoryReservation:
+    Type: Number
+    Default: 256
+  TargetGroupPort:
+    Type: Number    
+  LoadBalancerListenerExportName:
+    Type: String
+    Description: Export name of EcsCluster's LoadBalancerListener to add the new ListenerRule to, typically xx-infra-ecs-LoadBalancerListener
+  LoadBalancerHostedZoneIDExportName:
+    Type: String
+    Description: Export name of EcsCluster's LoadBalancerHostedZoneID, typically xx-infra-ecs-LoadBalancerHostedZoneID
+  LoadBalancerUrlExportName:
+    Type: String
+    Description: Export name of EcsCluster's LoadBalancerUrl, typically xx-infra-ecs-LoadBalancerUrl
+  PublicHostedZoneId:
+    Type: String
+    Default: Z130TZQ4TVD0G7 #fakedomain.com under Route 53
+  AwsAccount:
+    Type: String
+    Default: 24689 #Your AWS Account
+  PublicHostedZoneDomainName:
+    Type: String
+    Default: fakedomain.com
+  VpcIdExportName:
+    Type: String
+    Default: your-default-VPC
+    Description: Export name of your VPC id
+  EcsClusterAutoScalingRoleExportName:
+    Type: String
+    Description: Export name of your EcsCluster's AutoScalingRole Arn, typically xx-infra-ecs-AutoscalingRole
+
+  GetListenerRulePriorityFunctionArnExportName:
+    Type: String
+    Default: lcg-lambda-listener-rule-priority-GetListenerRulePriorityFunction
+    Description: Export name of GetListenerRulePriorityFunctionArnExportName, typically lcg-lambda-listener-rule-priority-GetListenerRulePriorityFunction
+   
+Resources:
+  PlannerApi:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster:
+        Fn::ImportValue: !Ref EcsClusterExportName
+      Role: !Ref ServiceRole
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      PlacementConstraints:
+        - Type: "distinctInstance"
+      PlacementStrategies:
+        - Type: "spread"
+          Field: "attribute:ecs.availability-zone"
+        - Type: "spread"
+          Field: "instanceId"
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 50
+        MaximumPercent: 100
+      LoadBalancers:
+        - ContainerName: !Ref 'AWS::StackName'
+          ContainerPort: !Ref Image1ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+
+  ServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": { "Service": [ "ecs.amazonaws.com" ]},
+            "Action": [ "sts:AssumeRole" ]
+          }]
+        }
+      Policies:
+        # AmazonEC2ContainerServiceRole
+        - PolicyName: ec2-container-service-role
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ec2:AuthorizeSecurityGroupIngress"
+                  - "ec2:Describe*"
+                  - "elasticloadbalancing:DeregisterInstancesFromLoadBalancer"
+                  - "elasticloadbalancing:DeregisterTargets"
+                  - "elasticloadbalancing:Describe*"
+                  - "elasticloadbalancing:RegisterInstancesWithLoadBalancer"
+                  - "elasticloadbalancing:RegisterTargets"
+                Resource:
+                  - "*"
+        # AmazonEC2ContainerServiceAutoscaleRole
+        - PolicyName: ec2-container-service-autoscale-role
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecs:DescribeServices"
+                  - "ecs:UpdateService"
+                Resource:
+                  - "*"
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: !Ref AWS::StackName
+          # AWS account id is different for different environments
+          # Assume the account id and region is eu-west-1 for now, otherwise we need a repo for each environment
+          Image: !Sub ${AwsAccount}.dkr.ecr.eu-west-1.amazonaws.com/${Image1Name}:${Tag}
+          MemoryReservation: !Ref Image1MemoryReservation
+          PortMappings:
+            - ContainerPort: !Ref Image1ContainerPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Ref AWS::StackName
+          Environment:
+            - Name: Tag
+              Value: !Ref Tag
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": { "Service": [ "ecs-tasks.amazonaws.com" ]},
+            "Action": [ "sts:AssumeRole" ]
+          }]
+        }
+
+  ## This is the magic where it all happens ##
+  GetListenerRulePriorityFunctionCustomResource:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: 
+        Fn::ImportValue: !Ref GetListenerRulePriorityFunctionArnExportName
+      listener_arn:
+        Fn::ImportValue: !Ref LoadBalancerListenerExportName
+      service_name: !Join ['', [!Ref 'AWS::StackName', ., !Ref PublicHostedZoneDomainName]]
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        Fn::ImportValue: !Ref LoadBalancerListenerExportName
+      ## Automagically retrieve the priority ##
+      Priority: 
+        !GetAtt GetListenerRulePriorityFunctionCustomResource.priority
+      Conditions:
+        - Field: host-header
+          Values:
+            - !Join ['', [!Ref 'AWS::StackName', ., !Ref PublicHostedZoneDomainName]]
+      Actions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Ref VpcIdExportName
+      Port: !Ref TargetGroupPort
+      Protocol: HTTP
+      Matcher:
+        HttpCode: 200-299
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: 10
+  DNS:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref PublicHostedZoneId
+      Name: !Join ['', [!Ref 'AWS::StackName', ., !Ref PublicHostedZoneDomainName, .]]
+      Type: A
+      AliasTarget:
+        HostedZoneId:
+          Fn::ImportValue: !Ref LoadBalancerHostedZoneIDExportName
+        DNSName:
+          Fn::ImportValue: !Ref LoadBalancerUrlExportName
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub ${AWS::StackName}-LogGroup
+      RetentionInDays: 30

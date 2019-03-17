@@ -1,0 +1,18 @@
+[
+    {
+        "ParameterKey": "S3Bucket",
+        "ParameterValue": "@REPO"
+    },
+    {
+        "ParameterKey": "S3Key",
+        "ParameterValue": "@S3KEY"
+    },
+    {
+        "ParameterKey": "ModuleName",
+        "ParameterValue": "@MODULENAME"
+    },
+    {
+        "ParameterKey": "Handler",
+        "ParameterValue": "handler"
+    }    
+]

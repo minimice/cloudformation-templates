@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Sets up a lambda which returns the listener rule priority to use when provided a specific load balancer.
+Metadata:
+  Created By: Lim Chooi Guan AWS Certified SA
+Parameters:
+  S3Bucket:
+    Type: String
+    Default: lcg-lambda-listener-rule-priority-bucket
+    Description: The name of the bucket that contains your packaged lambda source
+  S3Key:
+    Type: String
+    Default: lambda-listener_rule_priority.zip
+    Description: Name of the lamba zip package
+  ModuleName:
+    Type: String
+    Default: lambda-listener_rule_priority
+    Description: Name of the lamba package without the zip extension
+  Handler:
+    Type: String
+    Default: handler
+    Description: Name of the lamba handler
+
+Resources:
+  # Lambda function
+  GetListenerRulePriorityFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3Key
+      # lambda-listener_rule_priority.handler
+      Handler: !Sub '${ModuleName}.${Handler}'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.7
+      Timeout: 30
+      Tags:
+        - Key: team
+          Value: lcg
+  # Role used to execute the lambda function
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        # AWSLambdaBasicExecutionRole
+        - PolicyName: aws-lambda-basicexecution-role-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - "*"
+        # Policy to allow elasticloadbalancing, ec2 and cloudformation actions
+        - PolicyName: aws-lambda-otherpermissions-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - elasticloadbalancing:Describe*
+                  - ec2:DescribeInstances
+                  - ec2:DescribeClassicLinkInstances
+                  - ec2:DescribeSecurityGroups
+                  - cloudformation:ListExports
+                  - cloudformation:DescribeStackDriftDetectionStatus
+                  - cloudformation:DetectStackDrift
+                  - cloudformation:ListStackSetOperations
+                  - cloudformation:ListStackInstances
+                  - cloudformation:DescribeStackResource
+                  - cloudformation:ListStackSetOperationResults
+                  - cloudformation:DetectStackResourceDrift
+                  - cloudformation:EstimateTemplateCost
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackSetOperation
+                  - cloudformation:DescribeAccountLimits
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ListStackResources
+                  - cloudformation:ListStacks
+                  - cloudformation:ListImports
+                  - cloudformation:DescribeStackInstance
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackResourceDrifts
+                  - cloudformation:GetStackPolicy
+                  - cloudformation:DescribeStackSet
+                  - cloudformation:ListStackSets
+                  - cloudformation:GetTemplate
+                  - cloudformation:ListChangeSets
+                Resource:
+                  - "*"
+
+Outputs:
+  GetListenerRulePriorityFunctionArn:
+    Description: The arn of the custom resource function that returns the listener rule priority to use for an existing or new service.
+    Value: !GetAtt 'GetListenerRulePriorityFunction.Arn'
+    Export:
+      Name: !Sub ${AWS::StackName}-GetListenerRulePriorityFunction

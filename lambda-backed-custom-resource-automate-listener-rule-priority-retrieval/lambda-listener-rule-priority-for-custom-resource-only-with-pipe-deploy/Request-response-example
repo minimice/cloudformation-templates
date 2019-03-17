@@ -1,0 +1,33 @@
+########### REQUEST
+
+2019-03-04T13:31:09.110Z	d28f8c1a-1d0e-41d0-9926-74667a062a26	REQUEST RECEIVED:
+{
+    "RequestType": "Create",
+    "ServiceToken": "arn:aws:lambda:eu-west-1:Fake123:function:Lambda-SomeFunction-CYQ9JOJB46D9",
+    "ResponseURL": "https://cloudformation-custom-resource-response-euwest1.s3-eu-west-1.amazonaws.com/arn%3Aaws%3Acloudformation%3Aeu-west-1%3AFake123%3Astack/Lambda/SomeId%7CSomeFunction%7CSomeRequestId?AWSAccessKeyId=AKIAJ7MCS7PVEUOADEEA&Expires=1551713468&Signature=wsdt7IsJ7drDW7A%2BKnqP%2Bxej%2FSY%3D",
+    "StackId": "arn:aws:cloudformation:eu-west-1:Fake123:stack/Lambda/SomeId",
+    "RequestId": "SomeRequestId",
+    "LogicalResourceId": "SomeFunction",
+    "ResourceType": "Custom::SomeFunction",
+    "ResourceProperties": {
+        "ServiceToken": "arn:aws:lambda:eu-west-1:Fake123:function:Lambda-SomeFunction-CYQ9JOJB46D9", # ARN of your lambda function
+        "Architecture": "PV64", # What your lambda function takes in, for example this takes in Architecture and Region
+        "Region": "eu-west-1"
+    }
+}
+
+
+########### RESPONSE
+
+2019-03-04T13:31:12.750Z    d28f8c1a-1d0e-41d0-9926-74667a062a26    RESPONSE BODY:
+{
+    "Status": "SUCCESS",
+    "Reason": "See the details in CloudWatch Log Stream: 2019/03/04/[$LATEST]SomeLongId",
+    "PhysicalResourceId": "2019/03/04/[$LATEST]SomeLongId",
+    "StackId": "arn:aws:cloudformation:eu-west-1:Fake123:stack/Lambda/SomeId",
+    "RequestId": "SomeRequestId",
+    "LogicalResourceId": "SomeFunction",
+    "Data": {
+        "Id": "ami-042c2a70e02ba54f1"  # Returned from your function
+    }
+}

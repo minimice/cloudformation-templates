@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Sets up a bucket for the lambda function.
+Metadata:
+  Created By: Lim Chooi Guan AWS Certified SA
+Parameters:
+  Name:
+    Type: String
+  DevAccount:
+    Type: String
+
+Resources:
+  RepoBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref Name
+
+  RepoBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref RepoBucket
+      PolicyDocument: 
+         Statement:
+          - Sid: AllowList
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !Ref DevAccount
+            Action: 
+             - 's3:GetBucketLocation'
+             - 's3:ListBucket'
+            Resource:
+              - !Sub 'arn:aws:s3:::${Name}'
+          - Sid: AllowPull
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !Ref DevAccount
+            Action: 
+             - 's3:GetObject'
+            Resource:
+              - !Sub 'arn:aws:s3:::${Name}/*'
+          - Sid: AllowPush
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !Ref DevAccount
+            Action: 
+             - 's3:PutObject'
+            Resource:
+              - !Sub 'arn:aws:s3:::${Name}/*'
+          - Sid: AllowDelete
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !Ref DevAccount
+            Action: 
+             - 's3:DeleteBucket'
+             - 's3:DeleteBucketPolicy'
+            Resource:
+              - !Sub 'arn:aws:s3:::${Name}'

@@ -1,0 +1,84 @@
+## Sample deploy pipeline for gitlab ci ##
+
+stages:
+  - validate-template
+  - package-lambda
+  - deploy-lambda-bucket
+  - deploy-package-to-bucket
+  - deploy-lambda
+
+variables:
+  SERVICE_NAME: lcg-lambda-listener-rule-priority
+  STACK_NAME_LAMBDA_BUCKET: ${SERVICE_NAME}-bucket
+  SEMANTIC_VERSIONING: 1.0.$CI_PIPELINE_ID
+  DEPLOY_ID: $CI_COMMIT_SHA
+
+validate-cf-template:
+  #TODO need a docker image with aws cli
+  image: #docker.com/aws/docker/docker-awscli:latest
+  stage: validate-template
+  tags:
+    - lcg-dockerindocker
+  script:
+    - aws --region eu-west-1 cloudformation validate-template --template-body "file://aws/lambda-listener-rule-priority.yaml"
+
+package-lambda:
+  image: node:8.11.3-stretch
+  stage: package-lambda
+  tags:
+    - lcg-dockerindocker
+  before_script:
+    - apt-get update -y
+    - apt-get install -y zip
+    - cd lambda
+    - cp lambda-listener_rule_priority.py lambda-listener_rule_priority_${DEPLOY_ID}.py    
+  script:
+    - zip lambda-listener_rule_priority_${DEPLOY_ID}.zip lambda-listener_rule_priority_${DEPLOY_ID}.py
+  artifacts:
+    expire_in: 60 mins
+    paths:
+      - lambda/
+
+deploy-lambda-bucket:
+  #TODO need a docker image with aws cli
+  image: #docker.com/aws/docker/docker-awscli:latest
+  stage: deploy-lambda-bucket
+  tags:
+    - lcg-dockerindocker
+  before_script:
+    - cd aws
+    - chmod +x deploy-cf-lcg.sh
+    - sed -i.bak "s#@REPO#$STACK_NAME_LAMBDA_BUCKET#" params-lambda-bucket.json
+  script:
+    - /bin/sh ./deploy-cf-lcg.sh ${STACK_NAME_LAMBDA_BUCKET} params-lambda-bucket.json lambda-bucket.yaml
+
+deploy-package-to-bucket:
+  #TODO need a docker image with aws cli
+  image: #docker.com/aws/docker/docker-awscli:latest
+  stage: deploy-package-to-bucket
+  tags:
+    - lcg-dockerindocker
+  dependencies:
+    - package-lambda
+    - deploy-lambda-bucket
+  before_script:
+    - ls -la
+  script:
+    - aws s3 cp ./lambda/lambda-listener_rule_priority_${DEPLOY_ID}.zip s3://${STACK_NAME_LAMBDA_BUCKET} --sse AES256
+
+deploy-lambda:
+  #TODO need a docker image with aws cli
+  image: #docker.com/aws/docker/docker-awscli:latest
+  stage: deploy-lambda
+  tags:
+    - lcg-dockerindocker
+  before_script:
+    - cd aws
+    - chmod +x deploy-cf-lcg.sh
+    - sed -i.bak "s#@REPO#$STACK_NAME_LAMBDA_BUCKET#" lambda-listener-rule-priority.params.dev.json
+    - sed -i.bak "s#@S3KEY#lambda-listener_rule_priority_${DEPLOY_ID}.zip#" lambda-listener-rule-priority.params.dev.json
+    - sed -i.bak "s#@MODULENAME#lambda-listener_rule_priority_${DEPLOY_ID}#" lambda-listener-rule-priority.params.dev.json
+    - cat lambda-listener-rule-priority.params.dev.json
+  script:
+    - /bin/sh ./deploy-cf-lcg.sh ${SERVICE_NAME} lambda-listener-rule-priority.params.dev.json lambda-listener-rule-priority.yaml
+
