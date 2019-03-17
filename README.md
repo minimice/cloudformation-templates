@@ -6,5 +6,5 @@ Author: [Lim Chooi Guan](https://www.linkedin.com/in/cgl88/) (Team Cloud Lead @ 
 
 ## Top hits! 🤙
 
-* [Lambda-backed custom resource allowing retrieval of the next available listener rule priority automagically.] (https://github.com/minimice/cloudformation-templates/tree/master/lambda-backed-custom-resource-automate-listener-rule-priority-retrieval)
-* Control your billing via alerts (deploy to North Virginia region) to your email address.
+* [Lambda-backed custom resource allowing retrieval of the next available listener rule priority automagically](https://github.com/minimice/cloudformation-templates/tree/master/lambda-backed-custom-resource-automate-listener-rule-priority-retrieval)
+* [Control your billing via alerts (deploy to North Virginia region) to your email address.](https://github.com/minimice/cloudformation-templates/tree/master/cloudwatch-alarms-billing)
