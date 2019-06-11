@@ -7,6 +7,7 @@
 
 import boto3
 import json
+import time
 from botocore.vendored import requests
 
 def handler(event, context):
@@ -58,8 +59,23 @@ def handler(event, context):
         print("Found existing service, returning " + str(service_priority))
         return send_response(event, context, "SUCCESS", ({ 'priority': '' + str(service_priority) +'' }))
 
-    # Find a new rule priority for the new service
-    service_priority = get_next_avail_priority(listener_arn)
+    # Find a new rule priority for the new service (preliminary)
+    service_priority_preliminary = get_next_avail_priority(listener_arn)
+
+    # Wait 5 seconds and see if the priority has changed, if it has this means that the new service priority is now in use and we need to return a new one
+    time.sleep(5)
+
+    # Find a new rule priority for the new service (preliminary)
+    service_priority_final = get_next_avail_priority(listener_arn)
+
+    while service_priority_final != service_priority_preliminary:
+        service_priority_preliminary = get_next_avail_priority(listener_arn)
+        time.sleep(5)
+        service_priority_final = get_next_avail_priority(listener_arn)
+
+    # Return the final service priority
+    service_priority = service_priority_final
+
     print("Returning rule priority " + str(service_priority) + " for service " + service_name)
 
     # Limit of 50000
