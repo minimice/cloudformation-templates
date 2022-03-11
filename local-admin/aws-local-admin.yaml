@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Deploys an admin user (optional) with an admin role and group.  Created by, Lim Chooi Guan"
+Parameters:
+  UserAccount:
+    Type: String
+    Default: "No"
+    AllowedValues: 
+      - "No"
+      - "Yes"
+    Description: "Choose YES to create a local IAM admin account"
+Conditions:
+  CreateUserAccount: !Equals [!Ref UserAccount, "Yes"]
+
+Resources:
+  AdminRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: "admin-role"
+      Description: "Role which can be assumed to become an admin"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Sid: AllowAccountToAssumeTheRole
+            Principal:
+              AWS:
+              - !Sub "${AWS::AccountId}"
+            Action:
+              - "sts:AssumeRole"
+      Tags:
+        - Key: "Created by Cloudformation"
+          Value: "true"
+
+  AdminGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub "admin-group"
+
+  AdminRolePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: "Admin role policy"
+      ManagedPolicyName: !Sub "admin-role-policy-${AWS::Region}"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowAll
+            Effect: Allow
+            Action: "*"
+            Resource: "*"
+      Roles:
+        - !Ref AdminRole
+      Groups:
+        - !Ref AdminGroup
+
+  AdminUser:
+    Type: AWS::IAM::User
+    Condition: CreateUserAccount
+    Properties:
+      UserName: "admin-user"
+      Groups:
+        - !Ref AdminGroup
+      Tags:
+        - Key: "Created by Cloudformation"
+          Value: "true"
+
+  AdminUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Condition: CreateUserAccount
+    Properties:
+      Status: "Active"
+      UserName: !Ref AdminUser
+
+  AdminUserSecretAccessKey:
+    Type: AWS::SecretsManager::Secret
+    Condition: CreateUserAccount
+    Properties:
+      Name: !Sub "admin-user-secret-access-key-${AWS::Region}"
+      Description: "Secret access key for the user admin-user"
+      SecretString:
+        !Join
+          - ''
+          - - '{"AdminUserSecretAccessKey":"'
+            - !GetAtt AdminUserAccessKey.SecretAccessKey
+            - '"}'
+      Tags:
+        -
+          Key: "Created by Cloudformation"
+          Value: "true"
+
+Outputs:
+  AdminRoleArn:
+    Description: "admin-role ARN"
+    Value: !GetAtt AdminRole.Arn
+  CDKAdminAccessKeyID:
+    Condition: CreateUserAccount
+    Description: "admin-user user access key ID"
+    Value: !Ref AdminUserAccessKey
+
